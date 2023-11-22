@@ -18,6 +18,7 @@ const chanPort = ":8091"
 const clientConnectPort = ":8092"
 
 const localHost = "192.168.0.143"
+const localToken = "123"
 
 var (
 	chanConn    *net.TCPConn
@@ -37,17 +38,7 @@ func KeepAlive(conn *net.TCPConn) {
 	}
 }
 
-func createListen(addr string) (*net.TCPListener, error) {
-	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
-	if err != nil {
-		log.Fatal("create listener err:" + err.Error())
-	}
-	tcpListener, err := net.ListenTCP("tcp", tcpAddr)
-	return tcpListener, err
-}
-
 func serverListen(serverConn *net.TCPConn) {
-
 	//listener, err := createListen(localHost + serverPort)
 	//if err != nil {
 	//	panic(err)
@@ -97,7 +88,7 @@ func serverListen(serverConn *net.TCPConn) {
 	//}
 }
 func chanListen() {
-	listener, err := createListen(localHost + chanPort)
+	listener, err := util.CreateListen(localHost + chanPort)
 	if err != nil {
 		panic(err)
 	}
@@ -113,7 +104,7 @@ func chanListen() {
 }
 
 func connectListen() {
-	listener, err := createListen(localHost + clientConnectPort)
+	listener, err := util.CreateListen(localHost + clientConnectPort)
 	if err != nil {
 		panic(err)
 	}
@@ -130,7 +121,9 @@ func connectListen() {
 
 func serverRoute(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
-		_, ok := localCache.Get("auth")
+		ip, _, _ := net.SplitHostPort(r.RemoteAddr)
+		_, ok := localCache.Get(ip)
+		fmt.Println("GET ip:", ip, "token:", ok)
 		if ok {
 			hijacker, ok := w.(http.Hijacker)
 			fmt.Println(ok)
@@ -142,10 +135,12 @@ func serverRoute(w http.ResponseWriter, r *http.Request) {
 			defer conn.Close()
 			serverListen(conn.(*net.TCPConn))
 		} else {
-			showPasswordFormHtml(w)
+			util.ShowPasswordFormHtml(w)
 		}
 	} else if r.Method == "POST" {
-		_, ok := localCache.Get("auth")
+		ip, _, _ := net.SplitHostPort(r.RemoteAddr)
+		_, ok := localCache.Get(ip)
+		fmt.Println("POST ip:", ip, "token:", ok)
 		if ok {
 			hijacker, ok := w.(http.Hijacker)
 			fmt.Println(ok)
@@ -159,8 +154,9 @@ func serverRoute(w http.ResponseWriter, r *http.Request) {
 		} else {
 			token := r.FormValue("token")
 			token = html.EscapeString(token)
-			if token == "123" {
-				localCache.Set("auth", 1, 86400*time.Second)
+			if token == localToken {
+				ip, _, _ := net.SplitHostPort(r.RemoteAddr)
+				localCache.Set(ip, 1, 86400*time.Second)
 			} else {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("wrong token"))
@@ -170,26 +166,6 @@ func serverRoute(w http.ResponseWriter, r *http.Request) {
 	} else {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed) // 不允许其他HTTP方法
 	}
-}
-
-func showPasswordFormHtml(w http.ResponseWriter) {
-	html := `  
- <!DOCTYPE html>  
- <html>  
- <head>  
- <title>token Form</title>  
- </head>  
- <body>  
- <h1>请输入token</h1>  
- <form method="post" action="/">  
- <label for="token">Token:</label>  
- <input type="token" id="token" name="token">  
- <button type="submit">Submit</button>  
- </form>  
- </body>  
- </html>  
- `
-	fmt.Fprintf(w, html)
 }
 
 func main() {

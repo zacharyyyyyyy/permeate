@@ -18,18 +18,6 @@ const ConnectPort = ":8092"
 const serverHost = "192.168.0.143"
 const clientHost = "192.168.0.143"
 
-func creatConn(addr string) *net.TCPConn {
-	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
-	if err != nil {
-		log.Fatal(err)
-	}
-	conn, err := net.DialTCP("tcp", nil, tcpAddr)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return conn
-}
-
 func readData(conn *net.TCPConn) error {
 	reader := bufio.NewReader(conn)
 	for {
@@ -50,14 +38,14 @@ func readData(conn *net.TCPConn) error {
 		if data == "New Connection" {
 			//连接隧道转发
 			fmt.Println("ready in iocopy!", time.Now().Format("2006-01-02 15:04:05"))
-			connectConn := creatConn(serverHost + ConnectPort)
+			connectConn := util.CreatConn(serverHost + ConnectPort)
 			connectConn.SetKeepAlive(false)
 			connectConn.SetNoDelay(false)
-			connectConn.SetDeadline(time.Now().Add(1 * time.Second))
-			gitlabConn := creatConn(clientHost + gitlabPort)
+			connectConn.SetDeadline(time.Now().Add(500 * time.Millisecond))
+			gitlabConn := util.CreatConn(clientHost + gitlabPort)
 			gitlabConn.SetKeepAlive(false)
 			gitlabConn.SetNoDelay(false)
-			gitlabConn.SetDeadline(time.Now().Add(1 * time.Second))
+			gitlabConn.SetDeadline(time.Now().Add(500 * time.Millisecond))
 			fmt.Println("in iocopy!", time.Now().Format("2006-01-02 15:04:05"))
 			var wg sync.WaitGroup
 			wg.Add(2)
@@ -73,14 +61,13 @@ func readData(conn *net.TCPConn) error {
 			gitlabConn.Close()
 			connectConn.Close()
 			fmt.Println("io copy close!", time.Now().Format("2006-01-02 15:04:05"))
-
 		}
 	}
 	return nil
 }
 
 func main() {
-	chanConn := creatConn(serverHost + serverChanPort)
+	chanConn := util.CreatConn(serverHost + serverChanPort)
 	defer chanConn.Close()
 	fmt.Println("connect notice chan!")
 	for {

@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
+	"log"
+	"net"
 )
 
 func ClientDecode(reader *bufio.Reader) (string, error) {
@@ -43,4 +45,25 @@ func ServerEncode(message string) ([]byte, error) {
 		return nil, err
 	}
 	return pkg.Bytes(), nil
+}
+
+func CreatConn(addr string) *net.TCPConn {
+	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	conn, err := net.DialTCP("tcp", nil, tcpAddr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return conn
+}
+
+func CreateListen(addr string) (*net.TCPListener, error) {
+	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
+	if err != nil {
+		log.Fatal("create listener err:" + err.Error())
+	}
+	tcpListener, err := net.ListenTCP("tcp", tcpAddr)
+	return tcpListener, err
 }
