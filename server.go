@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/patrickmn/go-cache"
 	"html"
 	"io"
 	"log"
@@ -13,17 +12,18 @@ import (
 	"time"
 )
 
-const serverPort = ":8093"
-const chanPort = ":8091"
-const clientConnectPort = ":8092"
+const (
+	serverPort        = ":8093"
+	chanPort          = ":8091"
+	clientConnectPort = ":8092"
 
-const localHost = "192.168.0.143"
-const localToken = "123"
+	localHost  = "192.168.0.143"
+	localToken = "123"
+)
 
 var (
 	chanConn    *net.TCPConn
 	connectChan = make(chan *net.TCPConn, 10)
-	localCache  *cache.Cache
 )
 
 func KeepAlive(conn *net.TCPConn) {
@@ -120,10 +120,9 @@ func connectListen() {
 }
 
 func serverRoute(w http.ResponseWriter, r *http.Request) {
+	sessionCtl := util.NewSession(w, r)
 	if r.Method == "GET" {
-		ip, _, _ := net.SplitHostPort(r.RemoteAddr)
-		_, ok := localCache.Get(ip)
-		fmt.Println("GET ip:", ip, "token:", ok)
+		ok := sessionCtl.HasAuth()
 		if ok {
 			hijacker, ok := w.(http.Hijacker)
 			fmt.Println(ok)
@@ -138,9 +137,7 @@ func serverRoute(w http.ResponseWriter, r *http.Request) {
 			util.ShowPasswordFormHtml(w)
 		}
 	} else if r.Method == "POST" {
-		ip, _, _ := net.SplitHostPort(r.RemoteAddr)
-		_, ok := localCache.Get(ip)
-		fmt.Println("POST ip:", ip, "token:", ok)
+		ok := sessionCtl.HasAuth()
 		if ok {
 			hijacker, ok := w.(http.Hijacker)
 			fmt.Println(ok)
@@ -155,14 +152,12 @@ func serverRoute(w http.ResponseWriter, r *http.Request) {
 			token := r.FormValue("token")
 			token = html.EscapeString(token)
 			if token == localToken {
-				ip, _, _ := net.SplitHostPort(r.RemoteAddr)
-				localCache.Set(ip, 1, 86400*time.Second)
+				sessionCtl.Login()
 			} else {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("wrong token"))
 			}
 		}
-
 	} else {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed) // 不允许其他HTTP方法
 	}
@@ -172,7 +167,6 @@ func main() {
 	var wg sync.WaitGroup
 	fmt.Println("server start")
 	wg.Add(3)
-	localCache = cache.New(86400*time.Second, 86400*time.Second)
 	go func() {
 		http.HandleFunc("/", serverRoute)
 		log.Fatal(http.ListenAndServe(serverPort, nil))

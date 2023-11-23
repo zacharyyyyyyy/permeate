@@ -12,11 +12,13 @@ import (
 	"time"
 )
 
-const gitlabPort = ":8090"
-const serverChanPort = ":8091"
-const ConnectPort = ":8092"
-const serverHost = "192.168.0.143"
-const clientHost = "192.168.0.143"
+const (
+	gitlabPort     = ":8090"
+	serverChanPort = ":8091"
+	ConnectPort    = ":8092"
+	serverHost     = "192.168.0.143"
+	clientHost     = "192.168.0.143"
+)
 
 func readData(conn *net.TCPConn) error {
 	reader := bufio.NewReader(conn)
