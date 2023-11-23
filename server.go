@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"html"
 	"io"
 	"log"
 	"net"
@@ -39,18 +38,9 @@ func KeepAlive(conn *net.TCPConn) {
 }
 
 func serverListen(serverConn *net.TCPConn) {
-	//listener, err := createListen(localHost + serverPort)
-	//if err != nil {
-	//	panic(err)
-	//}
-	fmt.Println("server listening")
-	//for {
-	//	serverConn, err := listener.AcceptTCP()
+
 	fmt.Println("new connection!")
-	//if err != nil {
-	//	log.Printf("接收连接失败，错误信息为：%s\n", err.Error())
-	//	return
-	//}
+
 	data, _ := util.ServerEncode("New Connection")
 	_, err := chanConn.Write(data)
 	if err != nil {
@@ -61,11 +51,10 @@ func serverListen(serverConn *net.TCPConn) {
 	clientConnectConn := <-connectChan
 	serverConn.SetKeepAlive(false)
 	serverConn.SetNoDelay(false)
-	serverConn.SetDeadline(time.Now().Add(500 * time.Millisecond))
-	data, _ = util.ServerEncode("New Connection")
+	serverConn.SetDeadline(time.Now().Add(1 * time.Second))
 	clientConnectConn.SetKeepAlive(false)
 	clientConnectConn.SetNoDelay(false)
-	clientConnectConn.SetDeadline(time.Now().Add(500 * time.Millisecond))
+	clientConnectConn.SetDeadline(time.Now().Add(1 * time.Second))
 	if err != nil {
 		fmt.Println(err.Error())
 		return
@@ -75,11 +64,17 @@ func serverListen(serverConn *net.TCPConn) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		io.Copy(serverConn, clientConnectConn)
+		_, err := io.Copy(serverConn, clientConnectConn)
+		if err != nil {
+			fmt.Println("79:", err.Error())
+		}
 	}()
 	go func() {
 		defer wg.Done()
-		io.Copy(clientConnectConn, serverConn)
+		_, err := io.Copy(clientConnectConn, serverConn)
+		if err != nil {
+			fmt.Println("86:", err.Error())
+		}
 	}()
 	wg.Wait()
 	serverConn.Close()
@@ -87,6 +82,56 @@ func serverListen(serverConn *net.TCPConn) {
 	fmt.Println("connect close!", time.Now().Format("2006-01-02 15:04:05"))
 	//}
 }
+
+func serverListen1() {
+	listener, err := util.CreateListen(localHost + serverPort)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("server listening")
+	for {
+		serverConn, err := listener.AcceptTCP()
+		fmt.Println("new connection!")
+		if err != nil {
+			log.Printf("接收连接失败，错误信息为：%s\n", err.Error())
+			return
+		}
+		data, _ := util.ServerEncode("New Connection")
+		_, err = chanConn.Write(data)
+		if err != nil {
+			log.Printf("发送消息失败，错误信息为：%s\n", err.Error())
+		}
+		fmt.Println("notify connection")
+		fmt.Println("in connect!", serverConn.RemoteAddr().String(), time.Now().Format("2006-01-02 15:04:05"))
+		clientConnectConn := <-connectChan
+		serverConn.SetKeepAlive(false)
+		serverConn.SetNoDelay(false)
+		serverConn.SetDeadline(time.Now().Add(500 * time.Millisecond))
+		clientConnectConn.SetKeepAlive(false)
+		clientConnectConn.SetNoDelay(false)
+		clientConnectConn.SetDeadline(time.Now().Add(500 * time.Millisecond))
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+		// 数据转发
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			io.Copy(serverConn, clientConnectConn)
+		}()
+		go func() {
+			defer wg.Done()
+			io.Copy(clientConnectConn, serverConn)
+		}()
+		wg.Wait()
+		serverConn.Close()
+		clientConnectConn.Close()
+		fmt.Println("connect close!", time.Now().Format("2006-01-02 15:04:05"))
+	}
+}
+
 func chanListen() {
 	listener, err := util.CreateListen(localHost + chanPort)
 	if err != nil {
@@ -120,47 +165,49 @@ func connectListen() {
 }
 
 func serverRoute(w http.ResponseWriter, r *http.Request) {
-	sessionCtl := util.NewSession(w, r)
-	if r.Method == "GET" {
-		ok := sessionCtl.HasAuth()
-		if ok {
-			hijacker, ok := w.(http.Hijacker)
-			fmt.Println(ok)
-			if !ok {
-				return
-			}
-			conn, _, err := hijacker.Hijack()
-			fmt.Println(err)
-			defer conn.Close()
-			serverListen(conn.(*net.TCPConn))
-		} else {
-			util.ShowPasswordFormHtml(w)
-		}
-	} else if r.Method == "POST" {
-		ok := sessionCtl.HasAuth()
-		if ok {
-			hijacker, ok := w.(http.Hijacker)
-			fmt.Println(ok)
-			if !ok {
-				return
-			}
-			conn, _, err := hijacker.Hijack()
-			fmt.Println(err)
-			defer conn.Close()
-			serverListen(conn.(*net.TCPConn))
-		} else {
-			token := r.FormValue("token")
-			token = html.EscapeString(token)
-			if token == localToken {
-				sessionCtl.Login()
-			} else {
-				w.WriteHeader(http.StatusOK)
-				w.Write([]byte("wrong token"))
-			}
-		}
-	} else {
-		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed) // 不允许其他HTTP方法
+	//sessionCtl := util.NewSession(w, r)
+	w.Header().Add("Cache-Control", "max-age=0")
+	r.Header.Add("Cache-Control", "max-age=0")
+	//if r.Method == http.MethodGet {
+	//	ok := sessionCtl.HasAuth()
+	//	if ok {
+	hijacker, ok := w.(http.Hijacker)
+	fmt.Println("hijack conn:", ok)
+	if !ok {
+		return
 	}
+	conn, _, err := hijacker.Hijack()
+	fmt.Println("hijack err:", err)
+	defer conn.Close()
+	serverListen(conn.(*net.TCPConn))
+	//} else {
+	//	util.ShowPasswordFormHtml(w)
+	//}
+	//} else if r.Method == http.MethodPost {
+	//ok := sessionCtl.HasAuth()
+	//if ok {
+	//	hijacker, ok := w.(http.Hijacker)
+	//	fmt.Println("hijack conn:", ok)
+	//	if !ok {
+	//		return
+	//	}
+	//	conn, _, err := hijacker.Hijack()
+	//	fmt.Println("hijack err:", err)
+	//	defer conn.Close()
+	//	serverListen(conn.(*net.TCPConn))
+	//} else {
+	//	token := r.FormValue("token")
+	//	token = html.EscapeString(token)
+	//	if token == localToken {
+	//		sessionCtl.Login()
+	//	} else {
+	//		w.WriteHeader(http.StatusOK)
+	//		w.Write([]byte("wrong token"))
+	//	}
+	//}
+	//} else {
+	//	http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed) // 不允许其他HTTP方法
+	//}
 }
 
 func main() {
@@ -168,17 +215,21 @@ func main() {
 	fmt.Println("server start")
 	wg.Add(3)
 	go func() {
+		defer wg.Done()
 		http.HandleFunc("/", serverRoute)
 		log.Fatal(http.ListenAndServe(serverPort, nil))
-		defer wg.Done()
 	}()
+	//go func() {
+	//	defer wg.Done()
+	//	serverListen1()
+	//}()
 	go func() {
+		defer wg.Done()
 		chanListen()
-		defer wg.Done()
 	}()
 	go func() {
-		connectListen()
 		defer wg.Done()
+		connectListen()
 	}()
 	wg.Wait()
 }

@@ -43,11 +43,11 @@ func readData(conn *net.TCPConn) error {
 			connectConn := util.CreatConn(serverHost + ConnectPort)
 			connectConn.SetKeepAlive(false)
 			connectConn.SetNoDelay(false)
-			connectConn.SetDeadline(time.Now().Add(500 * time.Millisecond))
+			connectConn.SetDeadline(time.Now().Add(1 * time.Second))
 			gitlabConn := util.CreatConn(clientHost + gitlabPort)
 			gitlabConn.SetKeepAlive(false)
 			gitlabConn.SetNoDelay(false)
-			gitlabConn.SetDeadline(time.Now().Add(500 * time.Millisecond))
+			gitlabConn.SetDeadline(time.Now().Add(1 * time.Second))
 			fmt.Println("in iocopy!", time.Now().Format("2006-01-02 15:04:05"))
 			var wg sync.WaitGroup
 			wg.Add(2)
