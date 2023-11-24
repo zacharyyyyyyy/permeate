@@ -16,7 +16,8 @@ const (
 	chanPort          = ":8091"
 	clientConnectPort = ":8092"
 
-	localHost  = "192.168.0.143"
+	//localHost  = "192.168.0.143"
+	localHost  = "127.0.0.1"
 	localToken = "123"
 )
 
@@ -37,7 +38,7 @@ func KeepAlive(conn *net.TCPConn) {
 	}
 }
 
-func serverListen(serverConn *net.TCPConn) {
+func serverListen(serverConn *net.TCPConn, htmlData string) {
 
 	fmt.Println("new connection!")
 
@@ -62,8 +63,10 @@ func serverListen(serverConn *net.TCPConn) {
 	// 数据转发
 	var wg sync.WaitGroup
 	wg.Add(2)
+	msgChan := make(chan struct{}, 2)
 	go func() {
 		defer wg.Done()
+		msgChan <- struct{}{}
 		_, err := io.Copy(serverConn, clientConnectConn)
 		if err != nil {
 			fmt.Println("79:", err.Error())
@@ -71,16 +74,22 @@ func serverListen(serverConn *net.TCPConn) {
 	}()
 	go func() {
 		defer wg.Done()
+		msgChan <- struct{}{}
 		_, err := io.Copy(clientConnectConn, serverConn)
 		if err != nil {
 			fmt.Println("86:", err.Error())
 		}
 	}()
+	go func() {
+		<-msgChan
+		<-msgChan
+		fmt.Println(clientConnectConn.Write([]byte(htmlData)))
+		fmt.Println("write data")
+	}()
 	wg.Wait()
 	serverConn.Close()
 	clientConnectConn.Close()
 	fmt.Println("connect close!", time.Now().Format("2006-01-02 15:04:05"))
-	//}
 }
 
 func serverListen1() {
@@ -166,8 +175,7 @@ func connectListen() {
 
 func serverRoute(w http.ResponseWriter, r *http.Request) {
 	//sessionCtl := util.NewSession(w, r)
-	w.Header().Add("Cache-Control", "max-age=0")
-	r.Header.Add("Cache-Control", "max-age=0")
+
 	//if r.Method == http.MethodGet {
 	//	ok := sessionCtl.HasAuth()
 	//	if ok {
@@ -179,7 +187,7 @@ func serverRoute(w http.ResponseWriter, r *http.Request) {
 	conn, _, err := hijacker.Hijack()
 	fmt.Println("hijack err:", err)
 	defer conn.Close()
-	serverListen(conn.(*net.TCPConn))
+	serverListen(conn.(*net.TCPConn), util.GetHtmlDataPackage(r))
 	//} else {
 	//	util.ShowPasswordFormHtml(w)
 	//}

@@ -13,11 +13,14 @@ import (
 )
 
 const (
-	gitlabPort     = ":8090"
+	//gitlabPort     = ":8090"
+	gitlabPort     = ":8086"
 	serverChanPort = ":8091"
 	ConnectPort    = ":8092"
-	serverHost     = "192.168.0.143"
-	clientHost     = "192.168.0.143"
+	//serverHost     = "192.168.0.143"
+	//clientHost     = "192.168.0.143"
+	serverHost = "127.0.0.1"
+	clientHost = "127.0.0.1"
 )
 
 func readData(conn *net.TCPConn) error {
