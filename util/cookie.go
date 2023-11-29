@@ -47,6 +47,9 @@ func (s session) HasAuth() bool {
 	_, ok := localCache.Get(s.sid)
 	return ok
 }
+func (s session) GetSid() string {
+	return s.sid
+}
 
 func genSid() string {
 	strBuilder := strings.Builder{}

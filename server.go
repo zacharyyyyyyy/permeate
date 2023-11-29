@@ -133,16 +133,13 @@ func connectListen() {
 }
 
 func serverRoute(w http.ResponseWriter, r *http.Request) {
-	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
-	if ip == "::1" {
-		ip = "127.0.0.1"
-	}
-	if !util.IpRejector.Pass(ip) {
+
+	sessionCtl := util.NewSession(w, r)
+	if !util.IpRejector.Pass(sessionCtl.GetSid()) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("IP has been restricted"))
 		return
 	}
-	sessionCtl := util.NewSession(w, r)
 	if r.Method == http.MethodGet {
 		ok := sessionCtl.HasAuth()
 		if ok {
@@ -160,7 +157,7 @@ func serverRoute(w http.ResponseWriter, r *http.Request) {
 			if token == localToken {
 				sessionCtl.Login()
 			} else {
-				util.IpRejector.AddErrorTimes(ip)
+				util.IpRejector.AddErrorTimes(sessionCtl.GetSid())
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("wrong token"))
 			}
