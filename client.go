@@ -13,14 +13,11 @@ import (
 )
 
 const (
-	//gitlabPort     = ":8090"
-	gitlabPort     = ":8086"
+	gitlabPort     = ":8090"
 	serverChanPort = ":8091"
 	ConnectPort    = ":8092"
-	//serverHost     = "192.168.0.143"
-	//clientHost     = "192.168.0.143"
-	serverHost = "127.0.0.1"
-	clientHost = "127.0.0.1"
+	serverHost     = "192.168.0.143"
+	clientHost     = "192.168.0.143"
 )
 
 func readData(conn *net.TCPConn) error {
@@ -46,11 +43,11 @@ func readData(conn *net.TCPConn) error {
 			connectConn := util.CreatConn(serverHost + ConnectPort)
 			connectConn.SetKeepAlive(false)
 			connectConn.SetNoDelay(false)
-			connectConn.SetDeadline(time.Now().Add(1 * time.Second))
+			connectConn.SetDeadline(time.Now().Add(500 * time.Millisecond))
 			gitlabConn := util.CreatConn(clientHost + gitlabPort)
 			gitlabConn.SetKeepAlive(false)
 			gitlabConn.SetNoDelay(false)
-			gitlabConn.SetDeadline(time.Now().Add(1 * time.Second))
+			gitlabConn.SetDeadline(time.Now().Add(500 * time.Millisecond))
 			fmt.Println("in iocopy!", time.Now().Format("2006-01-02 15:04:05"))
 			var wg sync.WaitGroup
 			wg.Add(2)

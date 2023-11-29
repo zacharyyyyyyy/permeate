@@ -39,9 +39,9 @@ func GetHtmlDataPackage(r *http.Request) string {
 		str += key + ": " + val[0] + "\r\n"
 	}
 	str += "\r\n"
-	len := r.ContentLength // 获取请求实体长度
+	len := r.ContentLength
 	if len > 0 {
-		body := make([]byte, len) // 创建存放请求实体的字节切片
+		body := make([]byte, len)
 		r.Body.Read(body)
 		str += string(body)
 	}
