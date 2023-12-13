@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"permeate/util"
+	"strings"
 	"sync"
 	"time"
 )
@@ -15,10 +16,12 @@ import (
 const (
 	serverPort        = ":8093"
 	chanPort          = ":8091"
-	clientConnectPort = ":8092"
-
-	localHost  = "192.168.0.143"
-	localToken = "123"
+	clientConnectPort = ":8092"          //后续client多进程需新增端口
+	localHost         = ""               //server host 按实际部署host修改
+	localToken        = ""               //校验权限时输的token
+	defaultDeadLine   = 3 * time.Second  //默认超时时间
+	gitDeadLine       = 5 * time.Second  //带.git的请求超时时间
+	keepAliveTime     = 10 * time.Second //心跳包间隔
 )
 
 var (
@@ -35,11 +38,16 @@ func KeepAlive(conn *net.TCPConn) {
 			log.Printf("[KeepAlive] Error %s", err)
 			return
 		}
-		time.Sleep(time.Second * 10)
+		time.Sleep(keepAliveTime)
 	}
 }
 
-func serverListen(w http.ResponseWriter, htmlData string) {
+func serverListen(w http.ResponseWriter, r *http.Request, isGitMethod bool) {
+	keepAliveTime := defaultDeadLine
+	if isGitMethod {
+		keepAliveTime = gitDeadLine
+	}
+	htmlData := util.GetHtmlDataPackage(r)
 	hijacker, ok := w.(http.Hijacker)
 	fmt.Println("hijack conn:", ok)
 	if !ok {
@@ -50,7 +58,6 @@ func serverListen(w http.ResponseWriter, htmlData string) {
 	defer conn.Close()
 	fmt.Println("new connection!")
 	serverConn := conn.(*net.TCPConn)
-
 	data, _ := util.ServerEncode("New Connection")
 	_, err = chanConn.Write(data)
 	if err != nil {
@@ -61,10 +68,10 @@ func serverListen(w http.ResponseWriter, htmlData string) {
 	clientConnectConn := <-connectChan
 	serverConn.SetKeepAlive(false)
 	serverConn.SetNoDelay(false)
-	serverConn.SetDeadline(time.Now().Add(500 * time.Millisecond))
+	serverConn.SetDeadline(time.Now().Add(keepAliveTime))
 	clientConnectConn.SetKeepAlive(false)
 	clientConnectConn.SetNoDelay(false)
-	clientConnectConn.SetDeadline(time.Now().Add(500 * time.Millisecond))
+	clientConnectConn.SetDeadline(time.Now().Add(keepAliveTime))
 	if err != nil {
 		fmt.Println(err.Error())
 		return
@@ -140,17 +147,21 @@ func serverRoute(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("IP has been restricted"))
 		return
 	}
-	if r.Method == http.MethodGet {
+	isGitMethod := strings.Contains(r.URL.Path, ".git")
+	fmt.Println("get connect!", isGitMethod)
+	if isGitMethod {
+		serverListen(w, r, isGitMethod)
+	} else if r.Method == http.MethodGet {
 		ok := sessionCtl.HasAuth()
 		if ok {
-			serverListen(w, util.GetHtmlDataPackage(r))
+			serverListen(w, r, isGitMethod)
 		} else {
 			util.ShowPasswordFormHtml(w)
 		}
 	} else if r.Method == http.MethodPost {
 		ok := sessionCtl.HasAuth()
 		if ok {
-			serverListen(w, util.GetHtmlDataPackage(r))
+			serverListen(w, r, isGitMethod)
 		} else {
 			token := r.FormValue("token")
 			token = html.EscapeString(token)

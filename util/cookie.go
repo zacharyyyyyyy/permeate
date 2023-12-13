@@ -33,7 +33,7 @@ func NewSession(w http.ResponseWriter, r *http.Request) *session {
 	} else {
 		sid = cookie.Value
 	}
-	http.SetCookie(w, &http.Cookie{Name: sessionName, Value: sid, Path: "/", HttpOnly: false, Secure: true, Expires: time.Now().Add(LifeTime)})
+	http.SetCookie(w, &http.Cookie{Name: sessionName, Value: sid, Path: "/", HttpOnly: true, Secure: false, Expires: time.Now().Add(LifeTime)})
 	return &session{
 		sid: sid,
 	}
