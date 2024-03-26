@@ -31,6 +31,7 @@ var (
 )
 
 func KeepAlive(conn *net.TCPConn) {
+	defer util.RecoverFunc()
 	for {
 		data, _ := util.ServerEncode("KeepAlive")
 		_, err := conn.Write(data)
@@ -80,6 +81,7 @@ func serverListen(w http.ResponseWriter, r *http.Request, isGitMethod bool) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
+		defer util.RecoverFunc()
 		defer wg.Done()
 		msgChan <- struct{}{}
 		_, err := io.Copy(serverConn, clientConnectConn)
@@ -88,6 +90,7 @@ func serverListen(w http.ResponseWriter, r *http.Request, isGitMethod bool) {
 		}
 	}()
 	go func() {
+		defer util.RecoverFunc()
 		defer wg.Done()
 		msgChan <- struct{}{}
 		_, err := io.Copy(clientConnectConn, serverConn)
@@ -96,6 +99,7 @@ func serverListen(w http.ResponseWriter, r *http.Request, isGitMethod bool) {
 		}
 	}()
 	go func() {
+		defer util.RecoverFunc()
 		<-msgChan
 		<-msgChan
 		fmt.Println(clientConnectConn.Write([]byte(htmlData)))

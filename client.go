@@ -25,10 +25,7 @@ func readData(conn *net.TCPConn) error {
 	reader := bufio.NewReader(conn)
 	for {
 		data, err := util.ClientDecode(reader) // 解码
-		if errors.As(err, &io.EOF) {
-			return err
-		}
-		if err != nil {
+		if errors.As(err, &io.EOF) || err != nil {
 			return err
 		}
 		if data == "" {
@@ -53,10 +50,12 @@ func readData(conn *net.TCPConn) error {
 			var wg sync.WaitGroup
 			wg.Add(2)
 			go func() {
+				defer util.RecoverFunc()
 				defer wg.Done()
 				io.Copy(gitlabConn, connectConn)
 			}()
 			go func() {
+				defer util.RecoverFunc()
 				defer wg.Done()
 				io.Copy(connectConn, gitlabConn)
 			}()
